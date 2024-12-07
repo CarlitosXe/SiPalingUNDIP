@@ -52,8 +52,8 @@ final List<Map<String, dynamic>> _databimbingan = [
   },
 ];
 
-class Bimbingan extends StatelessWidget {
-  const Bimbingan({super.key});
+class HBimbingan extends StatelessWidget {
+  const HBimbingan({super.key});
 
   @override
   Widget build(BuildContext context) {

@@ -1,126 +1,167 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:pbp/appbar.dart';
 
-class Dftbimbingan extends StatelessWidget {
-  const Dftbimbingan({super.key});
+class Bimbingan {
+  String id; // Tambahkan properti id
+  String jenis_bimbingan;
+  String deskripsi;
+  String dosen_pembimbing;
+  String waktu;
+  String status;
+
+  Bimbingan({
+    required this.id, // Tambahkan parameter id
+    required this.jenis_bimbingan,
+    required this.deskripsi,
+    required this.dosen_pembimbing,
+    required this.waktu,
+    this.status = 'Belum',
+  });
+
+  factory Bimbingan.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return Bimbingan(
+      id: doc.id, // Ambil ID dokumen
+      jenis_bimbingan: data['jenis_bimbingan'] ?? '',
+      deskripsi: data['deskripsi'] ?? '',
+      dosen_pembimbing: data['dosen_pembimbing'] ?? '',
+      waktu: data['waktu'] ?? '',
+      status: data['status'] ?? 'Belum',
+    );
+  }
+
+  Future<void> updateStatus(String newStatus) async {
+    final docRef = FirebaseFirestore.instance.collection('bimbingan').doc(id); // Gunakan id
+    await docRef.update({'status': newStatus});
+  }
+}
+
+class Dftbimbingan extends StatefulWidget {
+  const Dftbimbingan({Key? key}) : super(key: key);
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: MyNavbar(),
-    body: SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  _DftbimbinganState createState() => _DftbimbinganState();
+}
+
+class _DftbimbinganState extends State<Dftbimbingan> {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: MyNavbar(),
+      body: Column(
         children: [
-          const Text(
-            "Atur Bimbingan",
-            style: TextStyle(
-              fontSize: 55,
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Align(
+              alignment: Alignment.centerLeft, // Mengatur teks ke kiri
+              child: Text(
+                'Atur Bimbingan',
+                style: TextStyle(
+                  fontSize: 55,
+                ),
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 40),
-            child: Center(
-              child: Stack(
-                children: [
-                  Container(
-                    width: 1200,
-                    height: 700,
-                    decoration: BoxDecoration(
-                      color: Colors.grey,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  Positioned(
-                    top: 100, 
-                    left: 50, 
-                    right: 50, 
-                    child: Container(
-                      width: 400, // Increase the width of the white box
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: ExpansionTile(
-                        title: Padding(
-                          padding: const EdgeInsets.all(8.0), // Add padding
-                          child: Text(
-                            "Krisna Okky Widayat - Semester 8",
-                            style: TextStyle(
-                              fontSize: 20, // Adjusted font size
-                              color: Colors.black,
-                            ),
-                          ),
-                        ),
-                        children: <Widget>[
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('bimbingan').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+                if (!snapshot.hasData) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                final bimbinganList = snapshot.data!.docs
+                    .map((doc) => Bimbingan.fromFirestore(doc))
+                    .toList();
+
+                return ListView.builder(
+                  itemCount: bimbinganList.length,
+                  itemBuilder: (context, index) {
+                    final bimbingan = bimbinganList[index];
+                    Color statusColor;
+
+                    // Tentukan warna berdasarkan status
+                    switch (bimbingan.status) {
+                      case 'Diterima':
+                        statusColor = Colors.green;
+                        break;
+                      case 'Ditolak':
+                        statusColor = Colors.red;
+                        break;
+                      default:
+                        statusColor = Colors.yellow;
+                    }
+
+                    return Card(
+                      margin: EdgeInsets.all(10),
+                      child: Column(
+                        children: [
                           ListTile(
-                            title: Text(
-                              "Jenis: Bimbingan Skripsi\n"
-                              "Waktu: Senin, 29 OKtober 2024\n"
-                              "jam  : 13.00\n",
-                              style: TextStyle(fontSize: 16),
+                            title: Text(bimbingan.jenis_bimbingan),
+                            subtitle: Text(
+                              '${bimbingan.deskripsi}\nDosen: ${bimbingan.dosen_pembimbing}\nWaktu: ${bimbingan.waktu}',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            isThreeLine: true,
+                          ),
+                          Container(
+                            color: statusColor,
+                            padding: EdgeInsets.all(8),
+                            child: Text(
+                              bimbingan.status,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                          Row(
+                          ButtonBar(
+                            alignment: MainAxisAlignment.end,
                             children: [
-                              Container(
-                                width: 150,
-                                height: 40,
-                                child: TextButton(
-                                  style: TextButton.styleFrom(
-                                    backgroundColor: Colors.green,
-                                    foregroundColor: Colors.black,
-                                  ),
-                                   onPressed:(){}, 
-                                   child: Text("Terima"),
-                                   ),
+                              TextButton(
+                                onPressed: () {
+                                  if (bimbingan.status == 'Belum') {
+                                    // Perbarui status di antarmuka
+                                    setState(() {
+                                      bimbingan.status = 'Diterima';
+                                    });
+
+                                    // Perbarui status di Firestore
+                                    bimbingan.updateStatus('Diterima');
+                                  }
+                                },
+                                child: Text('Terima'),
                               ),
-                             Container(
-                               width: 150,
-                               height: 40,
-                               child: TextButton(
-                                style: TextButton.styleFrom(
-                                  backgroundColor: Colors.red,
-                                  foregroundColor: Colors.black
-                                ),
-                                onPressed: (){}, 
-                               child: Text("Tolak"),
+                              TextButton(
+                                onPressed: () {
+                                  if (bimbingan.status == 'Belum') {
+                                    // Perbarui status di antarmuka
+                                    setState(() {
+                                      bimbingan .status = 'Ditolak';
+                                    });
+
+                                    // Perbarui status di Firestore
+                                    bimbingan.updateStatus('Ditolak');
+                                  }
+                                },
+                                child: Text('Tolak'),
                               ),
-                             ),
                             ],
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 100, // Align with the white box
-                    right: 50,
-                    child: Container(
-                      width: 100,
-                      height: 65,
-                      decoration: BoxDecoration(
-                        color: Colors.yellow,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Center(
-                        child: Text(
-                          "Belum",
-                          style: TextStyle(
-                            fontSize: 30, // Adjusted font size
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                    );
+                  },
+                );
+              },
             ),
           ),
         ],
       ),
-    ),
-  );
-}
-}
+    );
+  }
+} 
